@@ -140,6 +140,12 @@ cdef extern from "vxlapi.h":
     
         ctypedef XL_DRIVER_CONFIG  XLdriverConfig
 
+        ctypedef struct XL_LICENSE_INFO:
+            unsigned char bAvailable
+            char          licName[65]
+
+        ctypedef XL_LICENSE_INFO XLlicenseInfo
+
         ctypedef struct XLklineInitTester:
             unsigned int  TiniL
             unsigned int  Twup

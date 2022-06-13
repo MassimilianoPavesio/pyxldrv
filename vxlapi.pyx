@@ -437,6 +437,10 @@ cdef extern from "vxlapi.h":
     int _XL_KLINE_UART_PARITY_MARK                        "XL_KLINE_UART_PARITY_MARK"
     int _XL_KLINE_UART_PARITY_SPACE                       "XL_KLINE_UART_PARITY_SPACE"
 
+    # defines for xlKlineSwitchTesterResistor
+    int _XL_KLINE_TESTERRESISTOR_OFF                      "XL_KLINE_TESTERRESISTOR_OFF"
+    int _XL_KLINE_TESTERRESISTOR_ON                       "XL_KLINE_TESTERRESISTOR_ON"
+
     XLstatus xlOpenDriver()
     XLstatus xlCloseDriver()
     XLstatus xlGetDriverConfig(XLdriverConfig *pDriverConfig)
@@ -452,6 +456,11 @@ cdef extern from "vxlapi.h":
 
     XLstatus xlActivateChannel(XLportHandle portHandle, XLaccess accessMask, unsigned int busType, unsigned int flags)
     XLstatus xlDeactivateChannel(XLportHandle portHandle, XLaccess accessMask)
+
+    XLstatus xlPopupHwConfig(char* callSign, unsigned int waitForFinish)
+    XLstatus xlGetLicenseInfo(XLaccess channelMask, XLlicenseInfo* pLicInfoArray, unsigned int licInfoArraySize)
+    XLstatus xlGetKeymanBoxes(unsigned int* boxCount)
+    XLstatus xlGetKeymanInfo(unsigned int boxIndex, unsigned int* boxMask, unsigned int* boxSerial, XLuint64* licInfo)
     
     XLstatus xlKlineFastInitTester(XLportHandle portHandle, XLaccess accessMask, unsigned int length, unsigned char *data, XLklineInitTester *pxlKlineInitTester)
     XLstatus xlKlineInit5BdEcu(XLportHandle portHandle, XLaccess accessMask, XLkline5BdEcu *pxlKline5BdEcu)
@@ -661,36 +670,79 @@ cpdef ActivateChannel(XLportHandle portHandle, XLaccess accessMask, unsigned int
 cpdef DeactivateChannel(XLportHandle portHandle, XLaccess accessMask):
     return xlDeactivateChannel(portHandle, accessMask)
 
+    
+def PopupHwConfig(char* callSign=NULL, unsigned int waitForFinish=0):
+    return xlPopupHwConfig(callSign, waitForFinish)
+
+def GetLicenseInfo(XLaccess channelMask, list pLicInfoArray):
+    cdef XLstatus status = XL_ERROR
+    cdef XLlicenseInfo licInfoArray[1024]
+    cdef unsigned int licInfoArraySize = 1024
+    pLicInfoArray = []
+
+    if licInfoArraySize > 0:
+        memset(licInfoArray, 0, sizeof(XLlicenseInfo) * licInfoArraySize)
+        status = xlGetLicenseInfo(channelMask, licInfoArray, licInfoArraySize)
+        if status == XL_SUCCESS:
+            for i in range(licInfoArraySize):
+                licInfo = {}
+                licInfo["bAvailable"] = licInfoArray[i].bAvailable
+                licInfo["licName"] =  bytearray([licInfoArray[i].licName[j] for j in range(65)])
+                pLicInfoArray.append(licInfo)
+    return status
+
+def GetKeymanBoxes(list pBoxCount):
+    cdef XLstatus status = XL_ERROR
+    cdef unsigned int boxCount = 0
+    status = xlGetKeymanBoxes(&boxCount)
+    pBoxCount[0] = boxCount
+    return status
+
+def GetKeymanInfo(unsigned int boxIndex, list pBoxMask, list pBoxSerial, list pLicInfo):
+        cdef XLstatus status = XL_ERROR
+        cdef unsigned int boxMask = 0
+        cdef unsigned int boxSerial = 0
+        cdef XLuint64 licInfo[4]
+        pLicInfo = []
+        
+        memset(licInfo, 0, sizeof(XLuint64) * 4)
+        status = xlGetKeymanInfo(boxIndex, &boxMask, &boxSerial, licInfo)
+        if status == XL_SUCCESS:
+            pBoxMask[0]   = boxMask
+            pBoxSerial[0] = boxSerial
+            for i in range(4):
+                pLicInfo.append(licInfo[i])
+        return status
+
 # K-Line
 cpdef KlineFastInitTester(XLportHandle portHandle, XLaccess accessMask, unsigned int length, unsigned char* data, dict pXLklineInitTester):
     cdef XLstatus status = XL_ERROR
-    cdef XLklineInitTester xlKlineInitTester = {0}
+    cdef XLklineInitTester xlKlineInitTester
 
-    xlKlineInitTester.TiniL     = pXLklineInitTester["TiniL"]
-    xlKlineInitTester.Twup      = pXLklineInitTester["Twup"]
-    xlKlineInitTester.reserved  = pXLklineInitTester["reserved"]
+    xlKlineInitTester.TiniL    = <unsigned int> pXLklineInitTester["TiniL"]
+    xlKlineInitTester.Twup     = <unsigned int> pXLklineInitTester["Twup"]
     
     status = xlKlineFastInitTester(portHandle, accessMask, length, data, &xlKlineInitTester)
-    return status
+
+    return status    
 
 cpdef KlineInit5BdEcu(XLportHandle portHandle, XLaccess accessMask, dict pXLkline5BdEcu):
     cdef XLstatus status = XL_ERROR
-    cdef XLkline5BdEcu xlKline5BdEcu = {0}
+    cdef XLkline5BdEcu xlKline5BdEcu
 
-    xlKline5BdEcu.configure   = pXLkline5BdEcu["configure"]
-    xlKline5BdEcu.addr        = pXLkline5BdEcu["addr"]
-    xlKline5BdEcu.rate5bd     = pXLkline5BdEcu["rate5bd"]
-    xlKline5BdEcu.syncPattern = pXLkline5BdEcu["syncPattern"]
-    xlKline5BdEcu.W1          = pXLkline5BdEcu["W1"]
-    xlKline5BdEcu.W2          = pXLkline5BdEcu["W2"]
-    xlKline5BdEcu.W3          = pXLkline5BdEcu["W3"]
-    xlKline5BdEcu.W4          = pXLkline5BdEcu["W4"]
-    xlKline5BdEcu.W4min       = pXLkline5BdEcu["W4min"]
-    xlKline5BdEcu.W4max       = pXLkline5BdEcu["W4max"]
-    xlKline5BdEcu.kb1         = pXLkline5BdEcu["kb1"]
-    xlKline5BdEcu.kb2         = pXLkline5BdEcu["kb2"]
-    xlKline5BdEcu.addrNot     = pXLkline5BdEcu["addrNot"]
-    xlKline5BdEcu.reserved    = pXLkline5BdEcu["reserved"]
+    xlKline5BdEcu.configure   = <unsigned int> pXLkline5BdEcu["configure"]
+    xlKline5BdEcu.addr        = <unsigned int> pXLkline5BdEcu["addr"]
+    xlKline5BdEcu.rate5bd     = <unsigned int> pXLkline5BdEcu["rate5bd"]
+    xlKline5BdEcu.syncPattern = <unsigned int> pXLkline5BdEcu["syncPattern"]
+    xlKline5BdEcu.W1          = <unsigned int> pXLkline5BdEcu["W1"]
+    xlKline5BdEcu.W2          = <unsigned int> pXLkline5BdEcu["W2"]
+    xlKline5BdEcu.W3          = <unsigned int> pXLkline5BdEcu["W3"]
+    xlKline5BdEcu.W4          = <unsigned int> pXLkline5BdEcu["W4"]
+    xlKline5BdEcu.W4min       = <unsigned int> pXLkline5BdEcu["W4min"]
+    xlKline5BdEcu.W4max       = <unsigned int> pXLkline5BdEcu["W4max"]
+    xlKline5BdEcu.kb1         = <unsigned int> pXLkline5BdEcu["kb1"]
+    xlKline5BdEcu.kb2         = <unsigned int> pXLkline5BdEcu["kb2"]
+    xlKline5BdEcu.addrNot     = <unsigned int> pXLkline5BdEcu["addrNot"]
 
     status =  xlKlineInit5BdEcu(portHandle, accessMask, &xlKline5BdEcu)
 
@@ -698,21 +750,20 @@ cpdef KlineInit5BdEcu(XLportHandle portHandle, XLaccess accessMask, dict pXLklin
 
 cpdef KlineInit5BdTester(XLportHandle portHandle, XLaccess accessMask, dict pxlKline5BdTester):
     cdef XLstatus status = XL_ERROR
-    cdef XLkline5BdTester xlKline5BdTester = {0}
+    cdef XLkline5BdTester xlKline5BdTester
 
-    xlKline5BdTester.addr     = pxlKline5BdTester["addr"]
-    xlKline5BdTester.rate5bd  = pxlKline5BdTester["rate5bd"]
-    xlKline5BdTester.W1min    = pxlKline5BdTester["W1min"]
-    xlKline5BdTester.W1max    = pxlKline5BdTester["W1max"]
-    xlKline5BdTester.W2min    = pxlKline5BdTester["W2min"]
-    xlKline5BdTester.W2max    = pxlKline5BdTester["W2max"]
-    xlKline5BdTester.W3min    = pxlKline5BdTester["W3min"]
-    xlKline5BdTester.W3max    = pxlKline5BdTester["W3max"]
-    xlKline5BdTester.W4       = pxlKline5BdTester["W4"]
-    xlKline5BdTester.W4min    = pxlKline5BdTester["W4min"]
-    xlKline5BdTester.W4max    = pxlKline5BdTester["W4max"]
-    xlKline5BdTester.kb2Not   = pxlKline5BdTester["kb2Not"]
-    xlKline5BdTester.reserved = pxlKline5BdTester["reserved"]
+    xlKline5BdTester.addr     = <unsigned int> pxlKline5BdTester["addr"]
+    xlKline5BdTester.rate5bd  = <unsigned int> pxlKline5BdTester["rate5bd"]
+    xlKline5BdTester.W1min    = <unsigned int> pxlKline5BdTester["W1min"]
+    xlKline5BdTester.W1max    = <unsigned int> pxlKline5BdTester["W1max"]
+    xlKline5BdTester.W2min    = <unsigned int> pxlKline5BdTester["W2min"]
+    xlKline5BdTester.W2max    = <unsigned int> pxlKline5BdTester["W2max"]
+    xlKline5BdTester.W3min    = <unsigned int> pxlKline5BdTester["W3min"]
+    xlKline5BdTester.W3max    = <unsigned int> pxlKline5BdTester["W3max"]
+    xlKline5BdTester.W4       = <unsigned int> pxlKline5BdTester["W4"]
+    xlKline5BdTester.W4min    = <unsigned int> pxlKline5BdTester["W4min"]
+    xlKline5BdTester.W4max    = <unsigned int> pxlKline5BdTester["W4max"]
+    xlKline5BdTester.kb2Not   = <unsigned int> pxlKline5BdTester["kb2Not"]
     
     status =  xlKlineInit5BdTester(portHandle, accessMask, &xlKline5BdTester)
 
@@ -727,15 +778,14 @@ cpdef KlineSetBaudrate(XLportHandle portHandle, XLaccess accessMask, unsigned in
 
 cpdef KlineSetCommunicationTimingEcu(XLportHandle portHandle, XLaccess accessMask, dict pxlKlineSetComEcu):
     cdef XLstatus status = XL_ERROR
-    cdef XLklineSetComEcu xlKlineSetComEcu = {0}
+    cdef XLklineSetComEcu xlKlineSetComEcu
 
-    xlKlineSetComEcu.P1       = pxlKlineSetComEcu["P1"]
-    xlKlineSetComEcu.P4min    = pxlKlineSetComEcu["P4min"]
-    xlKlineSetComEcu.TinilMin = pxlKlineSetComEcu["TinilMin"]
-    xlKlineSetComEcu.TinilMax = pxlKlineSetComEcu["TinilMax"]
-    xlKlineSetComEcu.TwupMin  = pxlKlineSetComEcu["TwupMi"]
-    xlKlineSetComEcu.TwupMax  = pxlKlineSetComEcu["TwupMax"]
-    xlKlineSetComEcu.reserved = pxlKlineSetComEcu["reserved"]
+    xlKlineSetComEcu.P1       = <unsigned int> pxlKlineSetComEcu["P1"]
+    xlKlineSetComEcu.P4min    = <unsigned int> pxlKlineSetComEcu["P4min"]
+    xlKlineSetComEcu.TinilMin = <unsigned int> pxlKlineSetComEcu["TinilMin"]
+    xlKlineSetComEcu.TinilMax = <unsigned int> pxlKlineSetComEcu["TinilMax"]
+    xlKlineSetComEcu.TwupMin  = <unsigned int> pxlKlineSetComEcu["TwupMi"]
+    xlKlineSetComEcu.TwupMax  = <unsigned int> pxlKlineSetComEcu["TwupMax"]
     
     status = xlKlineSetCommunicationTimingEcu(portHandle, accessMask, &xlKlineSetComEcu)
     
@@ -743,11 +793,10 @@ cpdef KlineSetCommunicationTimingEcu(XLportHandle portHandle, XLaccess accessMas
 
 cpdef KlineSetCommunicationTimingTester(XLportHandle portHandle, XLaccess accessMask, dict pxlKlineSetComTester):
     cdef XLstatus status = XL_ERROR
-    cdef XLklineSetComTester xlKlineSetComTester = {0}
+    cdef XLklineSetComTester xlKlineSetComTester
 
-    xlKlineSetComTester.P1min    = pxlKlineSetComTester["P1min"]
-    xlKlineSetComTester.P4       = pxlKlineSetComTester["P4"]
-    xlKlineSetComTester.reserved = pxlKlineSetComTester["reserved"]
+    xlKlineSetComTester.P1min    = <unsigned int> pxlKlineSetComTester["P1min"]
+    xlKlineSetComTester.P4       = <unsigned int> pxlKlineSetComTester["P4"]
     
     status = xlKlineSetCommunicationTimingTester(portHandle, accessMask, &xlKlineSetComTester)
 
@@ -755,11 +804,11 @@ cpdef KlineSetCommunicationTimingTester(XLportHandle portHandle, XLaccess access
 
 cpdef KlineSetUartParams(XLportHandle portHandle, XLaccess accessMask, dict pxlKlineUartParams):
     cdef XLstatus status = XL_ERROR
-    cdef XLklineUartParameter xlKlineUartParams = {0}
+    cdef XLklineUartParameter xlKlineUartParams
 
-    xlKlineUartParams.databits = pxlKlineUartParams["databits"]
-    xlKlineUartParams.stopbits = pxlKlineUartParams["stopbits"]
-    xlKlineUartParams.parity   = pxlKlineUartParams["parity"]
+    xlKlineUartParams.databits = <unsigned int> pxlKlineUartParams["databits"]
+    xlKlineUartParams.stopbits = <unsigned int> pxlKlineUartParams["stopbits"]
+    xlKlineUartParams.parity   = <unsigned int> pxlKlineUartParams["parity"]
 
     status = xlKlineSetUartParams(portHandle, accessMask, &xlKlineUartParams)
 
@@ -1207,3 +1256,7 @@ XL_KLINE_UART_PARITY_EVEN                        = _XL_KLINE_UART_PARITY_EVEN
 XL_KLINE_UART_PARITY_ODD                         = _XL_KLINE_UART_PARITY_ODD
 XL_KLINE_UART_PARITY_MARK                        = _XL_KLINE_UART_PARITY_MARK
 XL_KLINE_UART_PARITY_SPACE                       = _XL_KLINE_UART_PARITY_SPACE
+
+# defines for xlKlineSwitchTesterResistor
+XL_KLINE_TESTERRESISTOR_OFF                      = _XL_KLINE_TESTERRESISTOR_OFF
+XL_KLINE_TESTERRESISTOR_ON                       = _XL_KLINE_TESTERRESISTOR_ON

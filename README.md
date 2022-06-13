@@ -112,6 +112,21 @@ ret = xl.CloseDriver()
 |xlCanReceive|no||
 |xlCanGetEventString|no||
 
+### K-Line Commands
+
+|name|support|remark|
+|:---|:---|:---|
+|xlKlineFastInitTester|yes||
+|xlKlineInit5BdEcu|yes|not tested.|
+|xlKlineInit5BdTester|yes|not tested.|
+|xlKlineSetBaudrat|yes||
+|xlKlineSetCommunicationTimingEcu|yes|not tested.|
+|xlKlineSetCommunicationTimingTester|yes|not tested.|
+|xlKlineSetUartParams|yes||
+|xlKlineSwitchHighspeedMode|yes|not tested.|
+|xlKlineSwitchTesterResistor|yes|not tested.|
+|xlKlineTransmit|yes||
+
 ### LIN Commands
 
 to be suported. 3rd
