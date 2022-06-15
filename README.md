@@ -107,7 +107,7 @@ ret = xl.CloseDriver()
 
 |name|support|remark|
 |:---|:---|:---|
-|xlCanFdSetConfiguration|yes|not tested.|
+|xlCanFdSetConfiguration|no||
 |xlCanTransmitEx|yes|not tested.|
 |xlCanReceive|no||
 |xlCanGetEventString|no||
